@@ -158,7 +158,7 @@ def multi_round_answer_sampling(save_code_dir, question, response_list_input, Co
     return response_list_input
 
 
-### Todo, load questions
+### TODO, load questions, add a elif loop for loading new dataset
 def load_task_dataset(task_name, model_name):
     ### question_list is necessary
     solution_list = []
@@ -703,9 +703,23 @@ def load_task_dataset(task_name, model_name):
         question_list = data_list['question'].tolist()
         solution_list = data_list['full_data'].tolist()
 
+    elif task_name == 'gpqa':
+        dataset_input_dir = 'dataset_gather/gpqa'
+        save_input_dir = 'results_gather/gpqa'
+        if not os.path.exists(save_input_dir):
+            os.makedirs(save_input_dir)
+        print(f'GPQA, Model_name: {model_name}\n')
+        puzzles = read_dataset_gpqa(dataset_input_dir)
+        for puzzle in puzzles:
+            # Format as multiple choice question
+            formatted_question = format_gpqa_question(puzzle)
+            question_list.append(formatted_question)
+            # Use the letter answer (A, B, C, D) instead of text answer
+            solution_list.append(puzzle['correct_letter'])
+
     return solution_list, question_list, target_list, puzzles, solution_data_list, question_constrained_list, question_matrix_list, number_list, word_list, letter_list, save_input_dir
 
-### Todo
+### TODO: add elif, add a new extract_equation_with_GPT_combi_calcu fucntion with a different name.
 def verify_solution_func_gather(i, task_name, response, save_code_dir, question, solution, target, puzzles, solution_data_list, solution_list, question_constrained_list, question_matrix_list, number_list_item, word, letter):
     # Verify solution based on task type
     ### Unchanged
@@ -1633,6 +1647,54 @@ def verify_solution_func_gather(i, task_name, response, save_code_dir, question,
         print(f'\nextracted_text_1: {extracted_text_1}')
         print(f'\noriginal_response: {original_response}')
         print(f'\nextracted_text_2: {extracted_text_2}')
+    elif task_name == 'gpqa':
+        solution_data = puzzles[i]
+        output_1 = None;
+        iteration_num_1 = 0
+        while output_1 == None and iteration_num_1 < 3:
+            iteration_num_1 += 1
+            output_1 = extract_equation_with_GPT4_gpqa_with_mapping(response, solution_data.get('option_mapping', {}))
+
+        output_2 = None;
+        iteration_num_2 = 0
+        while output_2 == None and iteration_num_2 < 3:
+            iteration_num_2 += 1
+            output_2 = extract_equation_with_GPT4_gpqa_with_mapping(original_response, solution_data.get('option_mapping', {}))
+
+        True_false_result_1, message_1 = validate_solution_gpqa(output_1, solution_data)
+        True_false_result_2, message_2 = validate_solution_gpqa(output_2, solution_data)
+        print(f'\nMessage from response: {message_1}')
+        print(f'\nMessage from original_response: {message_2}')
+
+        solution_1 = output_1; solution_2 = output_2
+        extracted_text_1 = str(output_1); extracted_text_2 = str(output_2)
+
+        print(f'True_false_result from response: {True_false_result_1}')
+        print(f'True_false_result from original_response: {True_false_result_2}')
+        print(f'target_solution: {solution}')
+        print(f'extracted_answer from response: {solution_1}')
+        print(f'extracted_answer from original_response: {solution_2}')
+        with open(save_code_dir + f"/True_false_result_1.txt", "w") as f:
+            f.write(str(True_false_result_1))
+        with open(save_code_dir + f"/True_false_result_2.txt", "w") as f:
+            f.write(str(True_false_result_2))
+        with open(save_code_dir + f"/extracted_answer_1.txt", "w") as f:
+            f.write(extracted_text_1)
+        with open(save_code_dir + f"/extracted_answer_2.txt", "w") as f:
+            f.write(extracted_text_2)
+
+        if True_false_result_1 == False and True_false_result_2 == False:
+            print('False')
+            with open(save_code_dir + f"/success_failure.txt", "w") as f:
+                f.write('False')
+        elif True_false_result_1 == True or True_false_result_2 == True:
+            print('True')
+            with open(save_code_dir + f"/success_failure.txt", "w") as f:
+                f.write('True')
+        else:
+            raise ValueError('Error: No True_false_result found')
+
+        return True_false_result_1, True_false_result_2
 
 
     print(f'True_false_result from response: {True_false_result_1}')
@@ -1664,7 +1726,70 @@ def verify_solution_func_gather(i, task_name, response, save_code_dir, question,
     return True_false_result_1, True_false_result_2
 
 
-### Todo
+def extract_equation_with_GPT4_gpqa(response: str) -> str:
+    import re
+    
+    answer_patterns = [
+        r'(?:Answer|ANSWER):\s*([A-D])',
+        r'(?:The answer is|answer is)\s*([A-D])',
+        r'\b([A-D])\s*(?:is (?:the )?correct|is (?:the )?answer)',
+        r'(?:^|\n)\s*([A-D])\s*(?:\.|$)',
+        r'(?:option|choice)\s*([A-D])',
+        r'\b([A-D])\)\s*\S+',  # Matches "C) Blue", "A) Red", "B) +∞", etc.
+    ]
+    
+    for pattern in answer_patterns:
+        matches = re.findall(pattern, response, re.IGNORECASE | re.MULTILINE)
+        if matches:
+            return matches[-1].upper()
+    
+    return None
+
+def extract_equation_with_GPT4_gpqa_with_mapping(response: str, option_mapping: dict) -> str:
+    # First try to extract letter directly
+    letter_answer = extract_equation_with_GPT4_gpqa(response)
+    if letter_answer:
+        return letter_answer
+    
+    # If no letter found, try to match answer text to options
+    import re
+    
+    # Extract text after "Answer:" or similar patterns
+    text_patterns = [
+        r'(?:Answer|ANSWER):\s*(.+?)(?:\n|$)',
+        r'(?:The answer is|answer is)\s*(.+?)(?:\n|$)',
+        r'(?:Therefore|Thus),?\s+(?:the answer is\s*)?(.+?)(?:\n|$)',
+    ]
+    
+    for pattern in text_patterns:
+        matches = re.findall(pattern, response, re.IGNORECASE | re.MULTILINE)
+        if matches:
+            answer_text = matches[-1].strip(' .*')
+            # Try to find which option matches this text
+            for letter, option_text in option_mapping.items():
+                if answer_text in option_text or option_text in answer_text:
+                    return letter
+    
+    return None
+
+def validate_solution_gpqa(extracted_answer: str, solution_data: dict) -> tuple[bool, str]:
+    if extracted_answer is None:
+        return False, "No answer extracted from response"
+    
+    # Check if we have letter mapping from formatted question
+    if 'correct_letter' in solution_data:
+        correct_letter = solution_data['correct_letter']
+        if extracted_answer == correct_letter:
+            return True, f"Correct! Answer {extracted_answer} matches expected {correct_letter}"
+        else:
+            return False, f"Incorrect. Answer {extracted_answer} does not match expected {correct_letter}"
+    else:
+        # Fallback to original text matching
+        correct_answer = solution_data['correct_answer'].strip()
+        if extracted_answer == correct_answer:
+            return True, f"Correct! Answer {extracted_answer} matches expected {correct_answer}"
+        else:
+            return False, f"Incorrect. Answer {extracted_answer} does not match expected {correct_answer}"
 ##### Combinatorial Calculation #####
 @dataclass
 class PuzzleInstance:
@@ -4780,6 +4905,64 @@ Now provide your plan (a valid path):
 """
     return prompt.strip()
 
+
+def read_dataset_gpqa(dataset_dir: str) -> List[Dict]:
+    import pandas as pd
+    puzzles = []
+    
+    gpqa_files = ['gpqa_main.csv']
+    
+    for file_name in gpqa_files:
+        file_path = os.path.join(dataset_dir, file_name)
+        if os.path.exists(file_path):
+            df = pd.read_csv(file_path)
+            df.columns = df.columns.str.strip()
+            for _, row in df.iterrows():
+                if pd.isna(row.get('Question', '')) or pd.isna(row.get('Correct Answer', '')):
+                    continue
+                puzzle = {
+                    'question': str(row['Question']).strip(),
+                    'correct_answer': str(row['Correct Answer']).strip(),
+                    'incorrect_answers': [
+                        str(row['Incorrect Answer 1']).strip(),
+                        str(row['Incorrect Answer 2']).strip(),
+                        str(row['Incorrect Answer 3']).strip()
+                    ],
+                    'explanation': str(row['Explanation']).strip(),
+                    'subdomain': str(row.get('Subdomain', '')).strip(),
+                    'file_source': file_name
+                }
+                puzzles.append(puzzle)
+    
+    return puzzles
+
+def format_gpqa_question(puzzle: dict) -> str:
+    import random
+    
+    # Create list of all options
+    options = [puzzle['correct_answer']] + puzzle['incorrect_answers']
+    
+    # Randomize order and assign letters
+    random.shuffle(options)
+    
+    # Find which letter corresponds to correct answer
+    correct_letter = None
+    for i, option in enumerate(options):
+        if option == puzzle['correct_answer']:
+            correct_letter = chr(ord('A') + i)
+            break
+    
+    # Store the correct letter mapping in the puzzle for validation
+    puzzle['correct_letter'] = correct_letter
+    puzzle['option_mapping'] = {chr(ord('A') + i): option for i, option in enumerate(options)}
+    
+    # Format the question
+    formatted_question = f"{puzzle['question']}\n\n"
+    for i, option in enumerate(options):
+        letter = chr(ord('A') + i)
+        formatted_question += f"{letter}) {option}\n"
+    
+    return formatted_question.strip()
 
 #####################################################
 # 3. Extracting and Checking LLM Responses

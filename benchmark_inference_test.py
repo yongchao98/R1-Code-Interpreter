@@ -27,7 +27,7 @@ if __name__ == '__main__':
 
     infer_base_path = '/path-to-R1-Code-Interpreter/R1-Code-Interpreter/LLaMA-Factory/examples/inference/' # To be filled
 
-    for model_name, LLM_path in [['R1_CI_14B', 'R1_CI_14B.yaml']]:
+    for model_name, LLM_path in [['gpt-4o', '']]:
         # [['gpt-4o', ''], ['R1_CI_14B', 'R1_CI_14B.yaml'], ['R1_CI_7B', 'R1_CI_7B.yaml'], ['R1_CI_3B', 'R1_CI_3B.yaml']]
         args_path = os.path.join(infer_base_path, LLM_path)
 
@@ -103,8 +103,9 @@ if __name__ == '__main__':
         runtime_list = []
         #baseline_method_name: 1_only_ques, All_code_CoT, All_text, R1_code_interpreter_test, R1_code_interpreter_data_syn_1, R1_code_interpreter_data_syn_hint, R1_code_interpreter_data_syn_code,
         # CodeSteer, CodeSteer_wo_self-answer_checker, Code_Interpreter
-        for baseline_method_name in ['R1_code_interpreter_test']:
-            for task_name in task_list_train + task_list_test:
+        for baseline_method_name in ['All_text']:
+            # for task_name in task_list_train + task_list_test:
+            for task_name in ['gpqa']:
                 print(f'task_name: {task_name}')
                 start_time = time.time()
                 run_logic_game_baselines(task_name, gather_save_input_dir, model_name, baseline_method_name, args_path, start_index, max_sample_num, max_round_num)
