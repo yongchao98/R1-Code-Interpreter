@@ -16,10 +16,10 @@ from typing_extensions import override
 from openai import AssistantEventHandler
 
 # Access the keys safely
-# openai_api_key = 'sk-..'
-# claude_api_key = 'sk-..'
-# mixtral_api_key = ''
-# deepseek_api_key = 'sk-..'
+openai_api_key = 'sk-..'
+claude_api_key = 'sk-..'
+mixtral_api_key = ''
+deepseek_api_key = 'sk-..'
 
 def save_dataset_item(dataset_item, json_file_path="dataset.json"):
     """

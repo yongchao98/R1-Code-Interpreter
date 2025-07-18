@@ -1729,6 +1729,13 @@ def verify_solution_func_gather(i, task_name, response, save_code_dir, question,
 def extract_equation_with_GPT4_gpqa(response: str) -> str:
     import re
     
+    # First try to extract from the standardized <<<answer>>> format
+    standardized_pattern = r'<<<\s*([A-D])\s*>>>'
+    matches = re.findall(standardized_pattern, response, re.IGNORECASE | re.MULTILINE)
+    if matches:
+        return matches[-1].upper()
+    
+    # Fallback to original patterns for backward compatibility
     answer_patterns = [
         r'(?:Answer|ANSWER):\s*([A-D])',
         r'(?:The answer is|answer is)\s*([A-D])',
@@ -1746,7 +1753,7 @@ def extract_equation_with_GPT4_gpqa(response: str) -> str:
     return None
 
 def extract_equation_with_GPT4_gpqa_with_mapping(response: str, option_mapping: dict) -> str:
-    # First try to extract letter directly
+    # First try to extract letter directly using the new standardized format
     letter_answer = extract_equation_with_GPT4_gpqa(response)
     if letter_answer:
         return letter_answer
@@ -1754,7 +1761,20 @@ def extract_equation_with_GPT4_gpqa_with_mapping(response: str, option_mapping: 
     # If no letter found, try to match answer text to options
     import re
     
-    # Extract text after "Answer:" or similar patterns
+    # Try to extract from standardized format first (may contain full text)
+    standardized_pattern = r'<<<\s*(.+?)\s*>>>'
+    matches = re.findall(standardized_pattern, response, re.IGNORECASE | re.MULTILINE)
+    if matches:
+        answer_text = matches[-1].strip()
+        # Check if it's already a letter
+        if len(answer_text) == 1 and answer_text.upper() in ['A', 'B', 'C', 'D']:
+            return answer_text.upper()
+        # Try to find which option matches this text
+        for letter, option_text in option_mapping.items():
+            if answer_text in option_text or option_text in answer_text:
+                return letter
+    
+    # Fallback to original text extraction patterns
     text_patterns = [
         r'(?:Answer|ANSWER):\s*(.+?)(?:\n|$)',
         r'(?:The answer is|answer is)\s*(.+?)(?:\n|$)',
@@ -4961,6 +4981,9 @@ def format_gpqa_question(puzzle: dict) -> str:
     for i, option in enumerate(options):
         letter = chr(ord('A') + i)
         formatted_question += f"{letter}) {option}\n"
+    
+    # Add standardized answer format instruction
+    formatted_question += "\nOnce you feel you are ready for the final answer, directly return the answer with the format <<<answer content>>> at the end of your response, e.g. <<<C>>>, <<<A>>>"
     
     return formatted_question.strip()
 
