@@ -10,12 +10,7 @@ R1-Code-Interpreter is the first framework to train LLMs for step-by-step code r
 
 ## 🏆 Performance
 <p align="center">
-  <img src="Open-images/result1.png" width="96%">
-</p>
-
-### GRPO Training
-<p align="center">
-  <img src="Open-images/GRPO.png" width="86%">
+  <img src="Open-images/R1-Code-Interpreter-fig1.pdf" width="96%">
 </p>
 
 ## 🤖 Dataset
