@@ -1,4 +1,4 @@
-# R1-Code-Interpreter: Training LLMs to Reason with Code via Supervised and Reinforcement Learning
+# R1-Code-Interpreter: Training LLMs to Reason with Code via Supervised and Reinforcement Learning (ICLR'2026)
 
 Our code is based on [Llama-factory](https://github.com/hiyouga/LLaMA-Factory)/[VeRL](https://github.com/volcengine/verl)/[Search-R1](https://github.com/PeterGriffinJin/Search-R1?tab=readme-ov-file) for the SFT and RL training and [SymBench](https://github.com/yongchao98/CodeSteer-v1.0/tree/main)/[BIG-Bench-Hard](https://github.com/yongchao98/R1-Code-Interpreter/tree/main)/[reasoning-gym](https://github.com/open-thought/reasoning-gym) for datasets/benchmarks of reasoning/planning tasks.
 
