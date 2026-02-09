@@ -75,7 +75,7 @@ git clone https://github.com/volcengine/verl.git
 cd verl
 pip3 install -e .
 pip install --upgrade huggingface_hub
-huggingface-cli login
+hf auth login
 cd ../Search-R1
 pip install -r requirements.txt
 pip3 install flash-attn --no-build-isolation
